@@ -1,0 +1,67 @@
+pipeline {
+    agent any
+
+    environment {
+        // GitHub repo URL
+        GIT_REPO = 'https://github.com/aaqibrahman/projectx.git'
+
+        // Email notification
+        EMAIL_RECIPIENTS = 'aaqibrahman23@gmail.com'
+
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: "${GIT_REPO}", branch: 'main'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
+                    // Optional: build Docker image if Dockerfile exists
+                    if (fileExists('Dockerfile')) {
+                        sh "docker build -t ${DOCKER_IMAGE} ."
+                    } else {
+                        echo "No Dockerfile found, skipping Docker build."
+                    }
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                script {
+                    if (fileExists('tests')) {
+                        sh "pytest tests/"
+                    } else {
+                        echo "No tests folder found, skipping tests."
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Build & tests successful!'
+            mail to: "${EMAIL_RECIPIENTS}",
+                 subject: "Jenkins Build Success: ${env.JOB_NAME}",
+                 body: "Good news! The build and tests passed successfully."
+
+            // Optional Slack notification
+            slackSend(channel: '#general', message: "✅ Build Successful: ${env.JOB_NAME}")
+        }
+
+        failure {
+            echo '❌ Build or tests failed!'
+            mail to: "${EMAIL_RECIPIENTS}",
+                 subject: "Jenkins Build Failed: ${env.JOB_NAME}",
+                 body: "Alert! Something went wrong in the build or tests."
+
+            // Optional Slack notification
+            slackSend(channel: '#general', message: "❌ Build Failed: ${env.JOB_NAME}")
+        }
+    }
+}
